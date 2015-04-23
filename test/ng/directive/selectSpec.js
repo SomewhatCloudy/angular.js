@@ -200,6 +200,70 @@ describe('select', function() {
 
     describe('empty option', function() {
 
+      it('should allow empty option to be added and removed dynamically', function() {
+
+        scope.dynamicOptions = [];
+        scope.robot = '';
+        compile('<select ng-model="robot">' +
+                  '<option ng-repeat="opt in dynamicOptions" value="{{opt.val}}">{{opt.display}}</option>' +
+                '</selec>');
+        expect(element).toEqualSelect(['? string: ?']);
+
+
+        scope.dynamicOptions = [
+          { val: '', display: '--select--' },
+          { val: 'x', display: 'robot x' },
+          { val: 'y', display: 'robot y' }
+        ];
+        scope.$digest();
+        expect(element).toEqualSelect([''], 'x', 'y');
+
+
+        scope.robot = 'x';
+        scope.$digest();
+        expect(element).toEqualSelect('', ['x'], 'y');
+
+
+        scope.dynamicOptions.shift();
+        scope.$digest();
+        expect(element).toEqualSelect(['x'], 'y');
+
+
+        scope.robot = undefined;
+        scope.$digest();
+        expect(element).toEqualSelect([unknownValue(undefined)], 'x', 'y');
+      });
+
+
+    it('should cope with a dynamic empty option added to a static empty option', function() {
+        scope.dynamicOptions = [];
+        scope.robot = 'x';
+        compile('<select ng-model="robot">' +
+                  '<option value="">--static-select--</option>' +
+                  '<option ng-repeat="opt in dynamicOptions" value="{{opt.val}}">{{opt.display}}</option>' +
+                '</selec>');
+        scope.$digest();
+        expect(element).toEqualSelect([unknownValue('x')], '');
+
+        scope.robot = undefined;
+        scope.$digest();
+        expect(element.find('option').eq(0).prop('selected')).toBe(true);
+        expect(element.find('option').eq(0).text()).toBe('--static-select--');
+
+        scope.dynamicOptions = [
+          { val: '', display: '--dynamic-select--' },
+          { val: 'x', display: 'robot x' },
+          { val: 'y', display: 'robot y' }
+        ];
+        scope.$digest();
+        expect(element).toEqualSelect([''], '', 'x', 'y');
+
+
+        scope.dynamicOptions = [];
+        scope.$digest();
+        expect(element).toEqualSelect(['']);
+    });
+
       it('should select the empty option when model is undefined', function() {
         compile('<select ng-model="robot">' +
                   '<option value="">--select--</option>' +
@@ -839,6 +903,60 @@ describe('select', function() {
       browserTrigger(element, 'change');
       expect(element).toBeValid();
       expect(element).toBeDirty();
+    });
+
+
+    describe('calls to $render', function() {
+
+      var ngModelCtrl;
+
+      beforeEach(function() {
+        compile(
+          '<select name="select" ng-model="selection" multiple>' +
+          '<option>A</option>' +
+          '<option>B</option>' +
+          '</select>');
+
+        ngModelCtrl = element.controller('ngModel');
+        spyOn(ngModelCtrl, '$render').andCallThrough();
+      });
+
+
+      it('should call $render once when the reference to the viewValue changes', function() {
+        scope.$apply(function() {
+          scope.selection = ['A'];
+        });
+        expect(ngModelCtrl.$render.calls.length).toBe(1);
+
+        scope.$apply(function() {
+          scope.selection = ['A', 'B'];
+        });
+        expect(ngModelCtrl.$render.calls.length).toBe(2);
+
+        scope.$apply(function() {
+          scope.selection = [];
+        });
+        expect(ngModelCtrl.$render.calls.length).toBe(3);
+      });
+
+
+      it('should call $render once when the viewValue deep-changes', function() {
+        scope.$apply(function() {
+          scope.selection = ['A'];
+        });
+        expect(ngModelCtrl.$render.calls.length).toBe(1);
+
+        scope.$apply(function() {
+          scope.selection.push('B');
+        });
+        expect(ngModelCtrl.$render.calls.length).toBe(2);
+
+        scope.$apply(function() {
+          scope.selection.length = 0;
+        });
+        expect(ngModelCtrl.$render.calls.length).toBe(3);
+      });
+
     });
 
   });
